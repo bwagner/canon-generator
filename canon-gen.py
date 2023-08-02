@@ -2,6 +2,8 @@ import music21
 import scamp
 import copy
 import random
+from music21.scale.intervalNetwork import Direction
+
 
 # define some readability constants
 SINGLE_NOTE = 0
@@ -49,10 +51,10 @@ def median(lst, if_even_length_use_upper_element=False):
             return lst[(length) // 2]
 
 
-def realize_chord(chordstring, numofpitch=3, baseoctave=4, direction="ascending"):
+def realize_chord(chordstring, numofpitch=3, baseoctave=4, direction=Direction.ASCENDING):
     """
     given a chordstring like Am7, return a list of numofpitch pitches, starting in octave baseoctave, and ascending
-    if direction == "descending", reverse the list of pitches before returning them
+    if direction == Direction.DESCENDING, reverse the list of pitches before returning them
     """
     pitches = music21.harmony.ChordSymbol(chordstring).pitches
     num_iter = numofpitch // len(pitches) + 1
@@ -67,14 +69,14 @@ def realize_chord(chordstring, numofpitch=3, baseoctave=4, direction="ascending"
                 result.append(newp)
                 actual_pitches += 1
             else:
-                if direction == "ascending":
+                if direction == Direction.ASCENDING:
                     return result
                 else:
                     result.reverse()
                     return result
         octave_correction += 1
 
-    if direction == "ascending":
+    if direction == Direction.ASCENDING:
         return result
     else:
         result.reverse()
@@ -124,8 +126,8 @@ class OneToThree(object):
         ]
 
         possible_steps = [
-            "ascending",
-            "descending"
+            Direction.ASCENDING,
+            Direction.DESCENDING
         ]
 
         chosen_dur = random.choice(possible_durations)
@@ -137,7 +139,7 @@ class OneToThree(object):
         new_stream.append(new_note)
 
         new_note2 = music21.note.Note()
-        next_pitch = scale.next(new_note.pitch, direction=chosen_step)
+        next_pitch = scale.nextPitch(new_note.pitch, direction=chosen_step)
         new_note2.pitch = next_pitch
         new_note2.quarterLength = chosen_dur[1] * note.quarterLength
         new_stream.append(new_note2)
@@ -229,8 +231,8 @@ class TwoToFour(object):
         chosen_dur = random.choice(possible_durations)
 
         possible_directions = [
-            "ascending",
-            "descending"
+            Direction.ASCENDING,
+            Direction.DESCENDING
         ]
         chosen_direction = random.choice(possible_directions)
         other_direction = list(set(possible_directions) - set([chosen_direction]))[0]
@@ -240,12 +242,12 @@ class TwoToFour(object):
         new_stream.append(new_note)
 
         new_note2 = copy.deepcopy(note2)
-        new_note2.pitch = scale.next(note2.pitch, direction=chosen_direction)
+        new_note2.pitch = scale.nextPitch(note2.pitch, direction=chosen_direction)
         new_note2.quarterLength = chosen_dur[1] * note1.quarterLength
         new_stream.append(new_note2)
 
         new_note3 = copy.deepcopy(note2)
-        new_note3.pitch = scale.next(note2.pitch, direction=other_direction)
+        new_note3.pitch = scale.nextPitch(note2.pitch, direction=other_direction)
         new_note3.quarterLength = chosen_dur[2] * note1.quarterLength
         new_stream.append(new_note3)
 
@@ -288,10 +290,10 @@ def spiceup_streams(streams, scale, repetitions=1):
                 method = random.choice(methods)
                 if method == SINGLE_NOTE:
                     trafo = random.choice(single_note_transformers)()
-                    newstream.append(trafo.transform(scale, new_note).flat.elements)
+                    newstream.append(trafo.transform(scale, new_note).flatten().elements)
                 elif method == DOUBLE_NOTE:
                     trafo = random.choice(double_note_transformers)()
-                    newstream.append(trafo.transform(scale, new_note, new_nextnote).flat.elements)
+                    newstream.append(trafo.transform(scale, new_note, new_nextnote).flatten().elements)
         newtotalstream.insert(0, newstream)
     return newtotalstream
 
@@ -306,7 +308,7 @@ def serialize_stream(stream, repeats=1):
     for i in range(copies):
         for part in reversed(stream):
             length = part.duration.quarterLength
-            new_stream.append(copy.deepcopy(part.flat.elements))
+            new_stream.append(copy.deepcopy(part.flatten().elements))
     return new_stream, length
 
 
@@ -339,7 +341,7 @@ def canon(serialized_stream, delay, voices, extra_transposition_map={}, tempo=12
     for v in range(voices):
         interval = extra_transposition_map[v]
         scamp.fork(notate_voice, args=(
-            parts[v], initial_rests[v], copy.deepcopy(serialized_stream).transpose(interval).flat.notesAndRests))
+            parts[v], initial_rests[v], copy.deepcopy(serialized_stream).transpose(interval).flatten().notesAndRests))
 
     s.wait_for_children_to_finish()
 
@@ -388,7 +390,7 @@ if __name__ == "__main__":
         streams[v] = music21.stream.Stream()
     # split each chord into a separate voice
     for c in splitted_chords:
-        pitches = realize_chord(c, voices, octave, direction="descending")
+        pitches = realize_chord(c, voices, octave, direction=Direction.DESCENDING)
         for v in range(voices):
             note = music21.note.Note(pitches[v])
             note.quarterLength = quarterLength
@@ -411,10 +413,13 @@ if __name__ == "__main__":
     # canon generation if the result is too horrible
     if path_to_musescore:
         music21.environment.set('musicxmlPath', path_to_musescore)
-    spiced_streams[-1].show("musicxml")
-    answer = None
-    while answer not in ['y', 'Y', 'n', 'N']:
-        answer = input("continue to generate canon from this spiced up chord progression? [y/n]: ")
+    # Bernhard Wagner 2023-08-02: commenting this out, since for music21 9.1.0 the following line crashes:
+    # spiced_streams[-1].show("musicxml")
+    # Bernhard Wagner 2023-08-02: hence the following interaction is immaterial, thus simply proceed.
+    answer = "y"
+    # answer = None
+    # while answer not in ['y', 'Y', 'n', 'N']:
+    #     answer = input("continue to generate canon from this spiced up chord progression? [y/n]: ")
 
     if answer in ['y', 'Y']:
         # unfold the final spiced up chord progression into a serialized stream
