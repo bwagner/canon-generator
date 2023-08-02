@@ -359,7 +359,12 @@ if __name__ == "__main__":
     path_to_musescore = ''  # change as needed; leave empty to use default settings
     chords = "C F Am Dm G C"
     # scale in which to interpret these chords
-    scale = music21.scale.MajorScale("C")
+    # scale = music21.scale.MajorScale("C")
+    # Bernhard Wagner 2023-08-02 changing from major scale to enigmatic scale:
+    enigmatic_scale_pitches = ['C', 'Db', 'E', 'F#', 'G#', 'A#', 'B', 'C']
+    enigmatic_scale = music21.scale.ConcreteScale(pitches=enigmatic_scale_pitches)
+    scale = enigmatic_scale
+
     # realize the chords using the given number of voices (e.g. 4)
     voices = 5
     # realize the chords in octave 4 (e.g. 4)
